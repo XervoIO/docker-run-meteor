@@ -1,0 +1,74 @@
+#!/bin/bash
+source /opt/nvm/nvm.sh
+mkdir -p /mnt/home/.nvm
+cp -R /opt/nvm/* /mnt/home/.nvm
+
+#set -x
+set -e
+
+cd /mnt/app
+
+# Initializing node
+NVM_DIR=$APP_DIR/.modulus/nvm
+if [[ -d $NVM_DIR ]]; then
+  nvm use deploy
+fi
+
+# Searches a directory top-down looking for a file.
+findFile() {
+  find $2 -name $1 ! -path "*/node_modules/*" ! -path ".git/*" | \
+  awk -F'/' '{print $0 "," NF-1}' | \
+  sort -t, -nk2 | \
+  awk -F',' '{print $1}' | \
+  head -n 1
+}
+
+# Find the package.json.
+PACKAGE_PATH=$(findFile "package.json" "./")
+
+# Attempt to read the start from package.json.
+START=$(node -pe "require('$PACKAGE_PATH').scripts.start || ''" 2> /dev/null || true)
+
+if [[ -z $PACKAGE_PATH ]] || [[ ! -f $PACKAGE_PATH ]]; then
+  echo "WARNING: No package.json file found."
+else
+  # Change the working directory to the location of the package.json.
+  echo "Found package.json: $PACKAGE_PATH"
+  cd $(dirname $PACKAGE_PATH)
+fi
+
+# Start script will always be specified from demeteorizer.
+if [[ -z $START ]]; then
+  echo "ERROR: No start script found. There is no application to run."
+  exit 0
+fi
+
+if [[ ! -d $NVM_DIR ]]; then
+  # Install node
+  NVM_DIR=$HOME/.nvm
+
+  if [ -f ./package.json ]; then
+    SOURCE_PATH=./package.json
+  fi
+
+  NODE_VERSION=$(get-version --engine node $SOURCE_PATH)
+  if [[ ! $NODE_VERSION ]]; then
+    printf "Unable to determine node version.\n"
+    exit 1
+  fi
+
+  printf "Initializing Node.js $NODE_VERSION\n"
+  nvm install $NODE_VERSION &> /dev/null
+  nvm use $NODE_VERSION
+fi
+
+if [[ ! $START ]]; then
+  echo "No start command found"
+  exit 1
+fi
+
+TORUN="npm start"
+
+echo "Running command: $TORUN"
+$TORUN &
+wait

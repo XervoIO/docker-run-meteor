@@ -24,7 +24,7 @@ findFile() {
 }
 
 # Find the package.json.
-PACKAGE_PATH=$(findFile "package.json" "./bundle")
+PACKAGE_PATH=$(findFile "package.json" "./bundle/programs/server")
 
 # Attempt to read the start from package.json.
 START=$(node -pe "require('$PACKAGE_PATH').scripts.start || ''" 2> /dev/null || true)
